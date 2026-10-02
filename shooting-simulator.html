@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Симулятор метання ножів — браузерна гра онлайн</title>
+<meta name="description" content="Безкоштовна браузерна гра: метай ножі по рухомих мішенях, збирай монети, відкривай нові ножі у магазині та обирай рівень складності. Грати онлайн прямо в браузері.">
+<meta name="keywords" content="симулятор метання ножів, гра кидати ножі, браузерна гра, метання ножів онлайн, knife throwing game">
+<meta property="og:title" content="Симулятор метання ножів">
+<meta property="og:description" content="Метай ножі по мішенях, збирай монети та прокачуй арсенал — грай прямо в браузері, безкоштовно.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg-top: #2a1c12;
+    --bg-bottom: #140d08;
+    --panel-bg: rgba(30, 20, 14, 0.85);
+    --panel-border: rgba(255, 200, 140, 0.15);
+    --text-main: #f2e6d8;
+    --text-dim: #baa48f;
+    --accent: #ff8a3d;
+    --accent-2: #ffb347;
+    --gold: #ffcc4d;
+    --danger: #ff4d4d;
+    --wood-1: #6b4423;
+    --wood-2: #4a2f18;
+    --wood-3: #3a240f;
+    --steel: #d9d9de;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg-top: #d8c3a5;
+      --bg-bottom: #a9835a;
+      --panel-bg: rgba(255, 250, 240, 0.85);
+      --panel-border: rgba(60, 30, 10, 0.15);
+      --text-main: #2a1c12;
+      --text-dim: #5c4630;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg-top: #2a1c12;
+    --bg-bottom: #140d08;
+    --panel-bg: rgba(30, 20, 14, 0.85);
+    --panel-border: rgba(255, 200, 140, 0.15);
+    --text-main: #f2e6d8;
+    --text-dim: #baa48f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px);
+    overflow-x: hidden;
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  h1 {
+    margin: 4px 0 0;
+    font-size: clamp(20px, 4vw, 28px);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+  h1 span { color: var(--accent); }
+
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    backdrop-filter: blur(8px);
+  }
+
+  .hud-group {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 58px;
+  }
+  .stat .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat .value {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.time .value { color: var(--accent-2); }
+  .stat.score .value { color: var(--gold); }
+  .stat.ammo .value { color: var(--text-main); }
+  .stat.best .value { color: var(--accent); }
+  .stat.coins .value { color: #ffd75e; }
+
+  .weapon-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 4px 0 2px;
+  }
+  .shop-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+  .shop-coins {
+    color: #ffd75e;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .weapon-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 132px;
+    padding: 10px 10px 12px;
+    border-radius: 12px;
+    border: 2px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s, background 0.15s;
+  }
+  .weapon-card:hover { transform: translateY(-2px); }
+  .weapon-card.active {
+    border-color: var(--accent);
+    background: rgba(255, 138, 61, 0.14);
+  }
+  .weapon-card.locked {
+    cursor: default;
+    opacity: 0.88;
+  }
+  .weapon-card.locked:hover { transform: none; }
+  .weapon-card .wname {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .weapon-card .wicon { font-size: 22px; line-height: 1; }
+  .weapon-card .wstats {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    text-align: center;
+  }
+  .weapon-card .wprice {
+    font-size: 12px;
+    color: #ffd75e;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .weapon-card .buy-btn {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: none;
+    background: #ffd75e;
+    color: #3a240f;
+    cursor: pointer;
+    box-shadow: none;
+  }
+  .weapon-card .buy-btn:disabled {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-dim);
+    cursor: not-allowed;
+  }
+  .weapon-card .buy-btn.shake {
+    animation: shakeBtn 0.3s;
+  }
+  @keyframes shakeBtn {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .coins-earned {
+    color: #ffd75e !important;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  #ammoBar {
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+  }
+  .bullet {
+    width: 5px;
+    height: 16px;
+    border-radius: 1px 1px 3px 3px;
+    background: linear-gradient(180deg, var(--steel), #9a9aa2 60%, var(--wood-1) 60%, var(--wood-1));
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .bullet.spent {
+    background: var(--panel-border);
+    transform: scaleY(0.6);
+    opacity: 0.5;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    background:
+      radial-gradient(ellipse 260px 220px at 8% 12%, rgba(255,150,60,0.35), transparent 65%),
+      radial-gradient(ellipse 260px 220px at 92% 12%, rgba(255,150,60,0.3), transparent 65%),
+      radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%),
+      repeating-linear-gradient(0deg, var(--wood-2) 0 54px, var(--wood-3) 54px 58px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0 2px, transparent 2px 140px),
+      linear-gradient(180deg, var(--wood-1), var(--wood-3));
+    touch-action: none;
+    cursor: none;
+  }
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(0,0,0,0.12) 0 3px, transparent 4px),
+      radial-gradient(circle at 65% 65%, rgba(0,0,0,0.1) 0 2px, transparent 3px),
+      radial-gradient(circle at 80% 20%, rgba(0,0,0,0.1) 0 2px, transparent 3px),
+      radial-gradient(circle at 40% 80%, rgba(0,0,0,0.1) 0 3px, transparent 4px);
+    z-index: 0;
+  }
+  .torch {
+    position: absolute;
+    top: 6%;
+    width: 14px;
+    height: 34px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #3a2716, #1f150c);
+    z-index: 1;
+  }
+  .torch.left { left: 4%; }
+  .torch.right { right: 4%; }
+  .torch::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -20px;
+    width: 22px;
+    height: 28px;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: radial-gradient(circle at 50% 70%, #fff3c4, #ffb347 45%, #ff6a2b 75%, transparent 90%);
+    filter: blur(1px);
+    animation: flicker 1.6s ease-in-out infinite alternate;
+  }
+  @keyframes flicker {
+    0% { opacity: 0.85; transform: translateX(-50%) scale(0.95) rotate(-2deg); }
+    50% { opacity: 1; transform: translateX(-48%) scale(1.05) rotate(1deg); }
+    100% { opacity: 0.9; transform: translateX(-52%) scale(1) rotate(-1deg); }
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .crosshair {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    transition: transform 0.05s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .crosshair .weapon-icon {
+    font-size: 26px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    user-select: none;
+  }
+  .crosshair.firing {
+    animation: kick 0.15s ease-out;
+  }
+  @keyframes kick {
+    0% { transform: translate(-50%, -50%) scale(0.7); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+
+  .thrown-knife {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    pointer-events: none;
+    z-index: 6;
+    transform-origin: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    transition: left 0.2s cubic-bezier(0.2, 0.6, 0.4, 1), top 0.2s cubic-bezier(0.2, 0.6, 0.4, 1), transform 0.2s linear;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(10, 12, 20, 0.72);
+    backdrop-filter: blur(3px);
+    text-align: center;
+    padding: 20px;
+    z-index: 10;
+    cursor: default;
+    overflow-y: auto;
+  }
+  .overlay h2 { margin: 0; font-size: clamp(22px, 5vw, 32px); }
+  .overlay p { margin: 0; color: var(--text-dim); max-width: 420px; line-height: 1.5; }
+  .overlay .big-score { font-size: 44px; font-weight: 800; color: var(--gold); }
+
+  button {
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 12px 28px;
+    border-radius: 999px;
+    border: none;
+    background: var(--accent);
+    color: #1a0f0d;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 4px 16px rgba(255, 92, 77, 0.35);
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+
+  .hint {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    padding: 2px 4px;
+  }
+  .hint b { color: var(--text-main); }
+
+  .float-pop {
+    position: absolute;
+    font-weight: 800;
+    font-size: 18px;
+    pointer-events: none;
+    animation: floatUp 0.7s ease-out forwards;
+    z-index: 6;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  @keyframes floatUp {
+    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+    100% { transform: translate(-50%, -140%) scale(1.15); opacity: 0; }
+  }
+
+  @media (pointer: coarse) {
+    .stage { cursor: default; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔪 Симулятор <span>метання ножів</span></h1>
+
+  <div class="hud">
+    <div class="hud-group">
+      <div class="stat time">
+        <div class="label">Час</div>
+        <div class="value" id="timeVal">60</div>
+      </div>
+      <div class="stat score">
+        <div class="label">Очки</div>
+        <div class="value" id="scoreVal">0</div>
+      </div>
+      <div class="stat best">
+        <div class="label">Рекорд</div>
+        <div class="value" id="bestVal">0</div>
+      </div>
+      <div class="stat coins">
+        <div class="label">Монети</div>
+        <div class="value" id="coinsVal">🪙 0</div>
+      </div>
+    </div>
+    <div class="stat ammo">
+      <div class="label">Ножі</div>
+      <div class="value" id="ammoVal">8/8</div>
+      <div id="ammoBar"></div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="torch left"></div>
+    <div class="torch right"></div>
+    <canvas id="canvas"></canvas>
+    <div class="crosshair" id="crosshair"><span class="weapon-icon" id="crosshairIcon">🔪</span></div>
+
+    <div class="overlay" id="startOverlay">
+      <h2>Готовий метати?</h2>
+      <p>Наводь ніж мишею (або пальцем на телефоні) і кидай по мішенях. Синя — 1 очко, золота — 3 очки і зникає швидко, червона — штраф −2. Влучиш точно в темний центр дошки — отримаєш бонус «Яблучко». За кожні 60 набраних очок — 50 монет.</p>
+      <div class="shop-header">
+        <span>Складність</span>
+      </div>
+      <div class="weapon-picker" id="difficultyPicker"></div>
+      <div class="shop-header">
+        <span>Твій арсенал</span>
+        <span class="shop-coins">🪙 <span id="shopCoinsVal">0</span></span>
+      </div>
+      <div class="weapon-picker" id="weaponPicker"></div>
+      <div class="shop-header">
+        <span>Апгрейди</span>
+      </div>
+      <div class="weapon-picker" id="itemPicker"></div>
+      <button id="startBtn">Почати гру</button>
+    </div>
+
+    <div class="overlay" id="endOverlay" style="display:none;">
+      <h2>Час вийшов!</h2>
+      <div class="big-score" id="finalScore">0</div>
+      <p id="endMsg">Очки за раунд</p>
+      <p id="coinsEarnedMsg" class="coins-earned"></p>
+      <button id="restartBtn">До магазину</button>
+    </div>
+  </div>
+
+  <div class="hint">Клік / дотик — <b>кинути ніж</b> · клавіша <b>R</b> — <b>перезарядити</b> вручну</div>
+</div>
+
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const crosshair = document.getElementById('crosshair');
+  const crosshairIcon = document.getElementById('crosshairIcon');
+  const timeVal = document.getElementById('timeVal');
+  const scoreVal = document.getElementById('scoreVal');
+  const bestVal = document.getElementById('bestVal');
+  const coinsVal = document.getElementById('coinsVal');
+  const ammoVal = document.getElementById('ammoVal');
+  const ammoBar = document.getElementById('ammoBar');
+  const startOverlay = document.getElementById('startOverlay');
+  const endOverlay = document.getElementById('endOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const finalScore = document.getElementById('finalScore');
+  const endMsg = document.getElementById('endMsg');
+  const coinsEarnedMsg = document.getElementById('coinsEarnedMsg');
+  const difficultyPicker = document.getElementById('difficultyPicker');
+  const weaponPicker = document.getElementById('weaponPicker');
+  const itemPicker = document.getElementById('itemPicker');
+  const shopCoinsVal = document.getElementById('shopCoinsVal');
+
+  const WEAPONS = {
+    classic: {
+      key: 'classic', label: 'Класичний', icon: '🔪',
+      magSize: 8, reloadMs: 1000, throwMs: 200,
+      bullseyeBonus: 2, extraPoint: 0, dangerReduction: 0, price: 0,
+      stats: '8 у запасі · перезарядка 1с · +2 яблучко'
+    },
+    light: {
+      key: 'light', label: 'Метальний', icon: '🗡️',
+      magSize: 12, reloadMs: 700, throwMs: 140,
+      bullseyeBonus: 1, extraPoint: 0, dangerReduction: 0, price: 0,
+      stats: '12 у запасі · швидка перезарядка 0.7с · +1 яблучко'
+    },
+    heavy: {
+      key: 'heavy', label: 'Мисливський', icon: '🔱',
+      magSize: 5, reloadMs: 1400, throwMs: 260,
+      bullseyeBonus: 3, extraPoint: 1, dangerReduction: 0, price: 0,
+      stats: '5 у запасі · повільна перезарядка 1.4с · +1 до влучання · +3 яблучко'
+    },
+    kunai: {
+      key: 'kunai', label: 'Кунай', icon: '🥷',
+      magSize: 10, reloadMs: 550, throwMs: 110,
+      bullseyeBonus: 2, extraPoint: 0, dangerReduction: 0, price: 150,
+      stats: '10 у запасі · блискавична перезарядка 0.55с · +2 яблучко'
+    },
+    machete: {
+      key: 'machete', label: 'Мачете', icon: '⚔️',
+      magSize: 6, reloadMs: 1200, throwMs: 240,
+      bullseyeBonus: 2, extraPoint: 2, dangerReduction: 1, price: 350,
+      stats: '6 у запасі · +2 до кожного влучання · менший штраф за пастку'
+    },
+    golden: {
+      key: 'golden', label: 'Золотий ніж', icon: '🌟',
+      magSize: 9, reloadMs: 800, throwMs: 150,
+      bullseyeBonus: 4, extraPoint: 1, dangerReduction: 1, price: 700,
+      stats: '9 у запасі · +1 до влучання · +4 яблучко · менший штраф за пастку'
+    }
+  };
+  let currentWeaponKey = 'classic';
+  let unlockedWeapons = ['classic', 'light', 'heavy'];
+
+  try {
+    const savedUnlocked = localStorage.getItem('knifesim_unlocked');
+    if (savedUnlocked) {
+      const parsed = JSON.parse(savedUnlocked);
+      if (Array.isArray(parsed)) {
+        unlockedWeapons = Array.from(new Set(['classic', 'light', 'heavy', ...parsed]));
+      }
+    }
+  } catch (e) { /* storage unavailable */ }
+
+  function saveUnlocked() {
+    try { localStorage.setItem('knifesim_unlocked', JSON.stringify(unlockedWeapons)); } catch (e) { /* ignore */ }
+  }
+
+  const ITEMS = {
+    shapes: {
+      key: 'shapes', label: 'Фігурні цілі', icon: '🔷',
+      price: 250,
+      stats: 'Додає квадратні, трикутні, шестикутні та зіркові мішені'
+    }
+  };
+  let unlockedItems = [];
+  try {
+    const savedItems = localStorage.getItem('knifesim_items');
+    if (savedItems) {
+      const parsed = JSON.parse(savedItems);
+      if (Array.isArray(parsed)) unlockedItems = parsed;
+    }
+  } catch (e) { /* storage unavailable */ }
+
+  function saveItems() {
+    try { localStorage.setItem('knifesim_items', JSON.stringify(unlockedItems)); } catch (e) { /* ignore */ }
+  }
+
+  function shapesUnlocked() { return unlockedItems.includes('shapes'); }
+
+  let MAG_SIZE = WEAPONS[currentWeaponKey].magSize;
+  let RELOAD_MS = WEAPONS[currentWeaponKey].reloadMs;
+  const ROUND_MS = 60000;
+  const COIN_STEP = 60;
+  const COIN_REWARD = 50;
+
+  let dpr = Math.max(1, window.devicePixelRatio || 1);
+  let W = 0, H = 0;
+
+  let running = false;
+  let score = 0;
+  let ammo = MAG_SIZE;
+  let reloading = false;
+  let reloadStart = 0;
+  let timeLeft = ROUND_MS;
+  let lastTs = 0;
+  let spawnTimer = 0;
+  let spawnInterval = 900;
+  let targets = [];
+  let best = 0;
+  let totalCoins = 0;
+  let lifetimeScore = 0;
+  let coinMilestone = 0;
+  let coinsThisRound = 0;
+
+  try {
+    const saved = localStorage.getItem('shootsim_best');
+    if (saved) best = parseInt(saved, 10) || 0;
+  } catch (e) { /* storage unavailable */ }
+  bestVal.textContent = best;
+
+  try {
+    const savedCoins = localStorage.getItem('knifesim_coins');
+    if (savedCoins) totalCoins = parseInt(savedCoins, 10) || 0;
+  } catch (e) { /* storage unavailable */ }
+
+  try {
+    const savedLifetime = localStorage.getItem('knifesim_lifetime_score');
+    if (savedLifetime) lifetimeScore = parseInt(savedLifetime, 10) || 0;
+  } catch (e) { /* storage unavailable */ }
+
+  try {
+    const savedMilestone = localStorage.getItem('knifesim_coin_milestone');
+    if (savedMilestone) coinMilestone = parseInt(savedMilestone, 10) || 0;
+  } catch (e) { /* storage unavailable */ }
+  // keep milestone consistent even if it was never saved before but lifetime score was
+  coinMilestone = Math.max(coinMilestone, Math.floor(lifetimeScore / 60));
+
+  function updateCoinsUI() {
+    coinsVal.textContent = '🪙 ' + totalCoins;
+    if (shopCoinsVal) shopCoinsVal.textContent = totalCoins;
+  }
+  updateCoinsUI();
+
+  function saveCoins() {
+    try { localStorage.setItem('knifesim_coins', String(totalCoins)); } catch (e) { /* ignore */ }
+  }
+
+  function saveLifetimeProgress() {
+    try {
+      localStorage.setItem('knifesim_lifetime_score', String(lifetimeScore));
+      localStorage.setItem('knifesim_coin_milestone', String(coinMilestone));
+    } catch (e) { /* ignore */ }
+  }
+
+  // pts: the raw points from this specific hit (can be negative for traps).
+  // Coin rewards are based on lifetime score, so short rounds still add up
+  // toward the next reward instead of resetting every round.
+  function checkCoinReward(pts) {
+    lifetimeScore += pts;
+    if (lifetimeScore < 0) lifetimeScore = 0;
+    const reached = Math.floor(lifetimeScore / COIN_STEP);
+    if (reached > coinMilestone) {
+      const gained = (reached - coinMilestone) * COIN_REWARD;
+      coinMilestone = reached;
+      totalCoins += gained;
+      coinsThisRound += gained;
+      updateCoinsUI();
+      saveCoins();
+      floatText(W / 2, H * 0.28, '🪙 +' + gained, '#ffd75e');
+    }
+    saveLifetimeProgress();
+  }
+
+  function updateCrosshairIcon() {
+    crosshairIcon.textContent = WEAPONS[currentWeaponKey].icon;
+  }
+  updateCrosshairIcon();
+
+  function renderWeaponPicker() {
+    weaponPicker.innerHTML = '';
+    Object.values(WEAPONS).forEach((w) => {
+      const owned = unlockedWeapons.includes(w.key);
+      const card = document.createElement('div');
+      card.className = 'weapon-card'
+        + (owned && w.key === currentWeaponKey ? ' active' : '')
+        + (owned ? '' : ' locked');
+
+      if (owned) {
+        card.innerHTML = `<div class="wicon">${w.icon}</div><div class="wname">${w.label}</div><div class="wstats">${w.stats}</div>`;
+        card.addEventListener('click', () => {
+          currentWeaponKey = w.key;
+          updateCrosshairIcon();
+          renderWeaponPicker();
+        });
+      } else {
+        card.innerHTML = `
+          <div class="wicon">${w.icon}</div>
+          <div class="wname">${w.label}</div>
+          <div class="wstats">${w.stats}</div>
+          <div class="wprice">🪙 ${w.price}</div>
+          <button type="button" class="buy-btn">Купити</button>
+        `;
+        const buyBtn = card.querySelector('.buy-btn');
+        const affordable = totalCoins >= w.price;
+        buyBtn.disabled = !affordable;
+        buyBtn.addEventListener('click', () => {
+          if (totalCoins >= w.price) {
+            totalCoins -= w.price;
+            unlockedWeapons.push(w.key);
+            currentWeaponKey = w.key;
+            updateCrosshairIcon();
+            saveUnlocked();
+            saveCoins();
+            updateCoinsUI();
+            renderWeaponPicker();
+            renderItemPicker();
+          }
+        });
+      }
+      weaponPicker.appendChild(card);
+    });
+  }
+  renderWeaponPicker();
+
+  function renderItemPicker() {
+    itemPicker.innerHTML = '';
+    Object.values(ITEMS).forEach((it) => {
+      const owned = unlockedItems.includes(it.key);
+      const card = document.createElement('div');
+      card.className = 'weapon-card' + (owned ? ' active locked' : ' locked');
+
+      if (owned) {
+        card.innerHTML = `<div class="wicon">${it.icon}</div><div class="wname">${it.label}</div><div class="wstats">${it.stats}</div><div class="wprice">Куплено ✓</div>`;
+      } else {
+        card.innerHTML = `
+          <div class="wicon">${it.icon}</div>
+          <div class="wname">${it.label}</div>
+          <div class="wstats">${it.stats}</div>
+          <div class="wprice">🪙 ${it.price}</div>
+          <button type="button" class="buy-btn">Купити</button>
+        `;
+        const buyBtn = card.querySelector('.buy-btn');
+        buyBtn.disabled = totalCoins < it.price;
+        buyBtn.addEventListener('click', () => {
+          if (totalCoins >= it.price) {
+            totalCoins -= it.price;
+            unlockedItems.push(it.key);
+            saveItems();
+            saveCoins();
+            updateCoinsUI();
+            renderItemPicker();
+            renderWeaponPicker();
+          }
+        });
+      }
+      itemPicker.appendChild(card);
+    });
+  }
+  renderItemPicker();
+
+  function resize() {
+    const rect = stage.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  const TYPES = {
+    normal: { r: 26, points: 1, color: '#4dd3ff', ring: '#2a8fb0', life: 2400, speedMax: 40 },
+    bonus:  { r: 16, points: 3, color: '#ffcc4d', ring: '#b88b1f', life: 1300, speedMax: 70 },
+    danger: { r: 22, points: -2, color: '#ff4d6d', ring: '#a12c44', life: 1900, speedMax: 55 }
+  };
+
+  const DIFFICULTIES = {
+    easy: {
+      key: 'easy', label: 'Легкий', icon: '🙂',
+      sizeMult: 1.25, speedMult: 0.6, lifeMult: 1.35, spawnMult: 1.35, maxTargetsAdj: -1,
+      bonusChance: 0.14, dangerChance: 0.1,
+      desc: 'Великі повільні мішені, мало пасток'
+    },
+    medium: {
+      key: 'medium', label: 'Середній', icon: '😐',
+      sizeMult: 1, speedMult: 1, lifeMult: 1, spawnMult: 1, maxTargetsAdj: 0,
+      bonusChance: 0.14, dangerChance: 0.18,
+      desc: 'Звичний баланс швидкості й розміру'
+    },
+    hard: {
+      key: 'hard', label: 'Важкий', icon: '😈',
+      sizeMult: 0.78, speedMult: 1.55, lifeMult: 0.68, spawnMult: 0.62, maxTargetsAdj: 1,
+      bonusChance: 0.16, dangerChance: 0.3,
+      desc: 'Дрібні швидкі мішені, багато пасток'
+    }
+  };
+  let currentDifficultyKey = 'medium';
+  try {
+    const savedDiff = localStorage.getItem('knifesim_difficulty');
+    if (savedDiff && DIFFICULTIES[savedDiff]) currentDifficultyKey = savedDiff;
+  } catch (e) { /* storage unavailable */ }
+
+  function saveDifficulty() {
+    try { localStorage.setItem('knifesim_difficulty', currentDifficultyKey); } catch (e) { /* ignore */ }
+  }
+
+  function renderDifficultyPicker() {
+    difficultyPicker.innerHTML = '';
+    Object.values(DIFFICULTIES).forEach((d) => {
+      const card = document.createElement('div');
+      card.className = 'weapon-card' + (d.key === currentDifficultyKey ? ' active' : '');
+      card.innerHTML = `<div class="wicon">${d.icon}</div><div class="wname">${d.label}</div><div class="wstats">${d.desc}</div>`;
+      card.addEventListener('click', () => {
+        currentDifficultyKey = d.key;
+        saveDifficulty();
+        renderDifficultyPicker();
+      });
+      difficultyPicker.appendChild(card);
+    });
+  }
+  renderDifficultyPicker();
+
+  const SHAPE_POOL_BASE = ['circle'];
+  const SHAPE_POOL_UNLOCKED = ['circle', 'circle', 'square', 'triangle', 'hexagon', 'star'];
+
+  function spawnTarget() {
+    const diff = DIFFICULTIES[currentDifficultyKey];
+    const roll = Math.random();
+    let type = 'normal';
+    if (roll > 1 - diff.bonusChance) type = 'bonus';
+    else if (roll > 1 - diff.bonusChance - diff.dangerChance) type = 'danger';
+    const def = TYPES[type];
+    const r = def.r * diff.sizeMult;
+    const x = rand(r + 10, W - r - 10);
+    const y = rand(r + 10, H - r - 10);
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(10, def.speedMax * diff.speedMult);
+    const cracks = [];
+    const crackCount = 2 + Math.floor(rand(0, 3));
+    for (let i = 0; i < crackCount; i++) {
+      const a = rand(0, Math.PI * 2);
+      cracks.push({
+        a,
+        len: rand(r * 0.35, r * 0.85),
+        wig: rand(-0.4, 0.4)
+      });
+    }
+    const pool = shapesUnlocked() ? SHAPE_POOL_UNLOCKED : SHAPE_POOL_BASE;
+    const shape = pool[Math.floor(Math.random() * pool.length)];
+    targets.push({
+      type, x, y, r, shape,
+      vx: Math.cos(angle) * speed / 1000,
+      vy: Math.sin(angle) * speed / 1000,
+      born: performance.now(),
+      life: def.life * diff.lifeMult,
+      hit: false,
+      popScale: 0,
+      cracks
+    });
+  }
+
+  function updateAmmoUI() {
+    ammoVal.textContent = reloading ? '...' : `${ammo}/${MAG_SIZE}`;
+    ammoBar.innerHTML = '';
+    for (let i = 0; i < MAG_SIZE; i++) {
+      const b = document.createElement('div');
+      b.className = 'bullet' + (i < ammo ? '' : ' spent');
+      ammoBar.appendChild(b);
+    }
+  }
+
+  function startReload() {
+    if (reloading || ammo === MAG_SIZE) return;
+    reloading = true;
+    reloadStart = performance.now();
+    updateAmmoUI();
+  }
+
+  function floatText(x, y, text, color) {
+    const el = document.createElement('div');
+    el.className = 'float-pop';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    stage.appendChild(el);
+    setTimeout(() => el.remove(), 720);
+  }
+
+  function pointerPos(e) {
+    const rect = stage.getBoundingClientRect();
+    const cx = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    const cy = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+    return { x: cx - rect.left, y: cy - rect.top };
+  }
+
+  function moveCrosshair(x, y) {
+    crosshair.style.left = x + 'px';
+    crosshair.style.top = y + 'px';
+  }
+
+  stage.addEventListener('mousemove', (e) => {
+    const p = pointerPos(e);
+    moveCrosshair(p.x, p.y);
+  });
+  stage.addEventListener('touchmove', (e) => {
+    const p = pointerPos(e);
+    moveCrosshair(p.x, p.y);
+  }, { passive: true });
+
+  let audioCtx = null;
+  function ensureAudio() {
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return;
+    }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { audioCtx = null; }
+  }
+
+  function playWhoosh() {
+    if (!audioCtx) return;
+    try {
+      const t0 = audioCtx.currentTime;
+      const size = Math.floor(audioCtx.sampleRate * 0.14);
+      const buffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / size);
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 1600;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.09, t0);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + 0.14);
+      noise.connect(hp).connect(g).connect(audioCtx.destination);
+      noise.start(t0);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  function playThud(sharp) {
+    if (!audioCtx) return;
+    try {
+      const t0 = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(sharp ? 220 : 150, t0);
+      osc.frequency.exponentialRampToValueAtTime(50, t0 + 0.12);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.32, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0); osc.stop(t0 + 0.17);
+
+      const size = Math.floor(audioCtx.sampleRate * 0.09);
+      const buffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / size * 6);
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = sharp ? 2600 : 1800;
+      bp.Q.value = 6;
+      const ngain = audioCtx.createGain();
+      ngain.gain.setValueAtTime(sharp ? 0.3 : 0.18, t0);
+      ngain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
+      noise.connect(bp).connect(ngain).connect(audioCtx.destination);
+      noise.start(t0);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  function throwKnifeFx(x, y) {
+    const el = document.createElement('div');
+    el.className = 'thrown-knife';
+    const w = WEAPONS[currentWeaponKey];
+    el.textContent = w.icon;
+    const dur = w.throwMs;
+    el.style.transitionDuration = dur + 'ms';
+    const startX = W / 2;
+    const startY = H + 6;
+    const angle = Math.atan2(y - startY, x - startX) * 180 / Math.PI;
+    el.style.left = (startX - 15) + 'px';
+    el.style.top = (startY - 15) + 'px';
+    el.style.transform = `rotate(${angle}deg)`;
+    el.style.opacity = '0.95';
+    stage.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.left = (x - 15) + 'px';
+      el.style.top = (y - 15) + 'px';
+      el.style.transform = `rotate(${angle + 380}deg)`;
+    });
+    setTimeout(() => el.remove(), dur + 30);
+    return dur;
+  }
+
+  function shoot(x, y) {
+    if (!running) return;
+    if (reloading) return;
+    if (ammo <= 0) { startReload(); return; }
+    ammo--;
+    updateAmmoUI();
+    const w = WEAPONS[currentWeaponKey];
+    const throwDur = throwKnifeFx(x, y);
+    playWhoosh();
+    crosshair.classList.remove('firing');
+    void crosshair.offsetWidth;
+    crosshair.classList.add('firing');
+
+    let hitAny = false;
+    let bullseye = false;
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const t = targets[i];
+      if (t.hit) continue;
+      const dx = t.x - x, dy = t.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= t.r) {
+        t.hit = true;
+        hitAny = true;
+        const def = TYPES[t.type];
+        let pts = def.points;
+        if (pts > 0) pts += w.extraPoint;
+        if (t.type !== 'danger' && dist <= t.r * 0.32) {
+          bullseye = true;
+          pts += w.bullseyeBonus;
+        }
+        score += pts;
+        if (score < 0) score = 0;
+        scoreVal.textContent = score;
+        checkCoinReward(pts);
+        const label = bullseye ? 'ЯБЛУЧКО! +' + pts : (pts > 0 ? '+' + pts : pts);
+        floatText(t.x, t.y, label, bullseye ? '#fff3c4' : def.color);
+        setTimeout(() => {
+          const idx = targets.indexOf(t);
+          if (idx !== -1) targets.splice(idx, 1);
+        }, 90);
+        break;
+      }
+    }
+    if (ammo === 0) startReload();
+    setTimeout(() => playThud(hitAny), throwDur - 10);
+  }
+
+  stage.addEventListener('mousedown', (e) => {
+    if (!running) return;
+    const p = pointerPos(e);
+    shoot(p.x, p.y);
+  });
+  stage.addEventListener('touchstart', (e) => {
+    if (!running) return;
+    e.preventDefault();
+    const p = pointerPos(e);
+    moveCrosshair(p.x, p.y);
+    shoot(p.x, p.y);
+  }, { passive: false });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') startReload();
+  });
+
+  function polygonPoints(sides, r, startAngle) {
+    const pts = [];
+    for (let i = 0; i < sides; i++) {
+      const a = startAngle + i * (Math.PI * 2 / sides);
+      pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    return pts;
+  }
+
+  function starPoints(rOuter, rInner) {
+    const pts = [];
+    let rot = -Math.PI / 2;
+    const step = Math.PI / 5;
+    for (let i = 0; i < 5; i++) {
+      pts.push([Math.cos(rot) * rOuter, Math.sin(rot) * rOuter]);
+      rot += step;
+      pts.push([Math.cos(rot) * rInner, Math.sin(rot) * rInner]);
+      rot += step;
+    }
+    return pts;
+  }
+
+  function traceShapePath(shape, r) {
+    ctx.beginPath();
+    let pts = null;
+    if (shape === 'square') pts = polygonPoints(4, r * 1.05, -Math.PI / 4);
+    else if (shape === 'triangle') pts = polygonPoints(3, r * 1.18, -Math.PI / 2);
+    else if (shape === 'hexagon') pts = polygonPoints(6, r * 1.02, -Math.PI / 2);
+    else if (shape === 'star') pts = starPoints(r * 1.15, r * 0.5);
+
+    if (pts) {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.closePath();
+    } else {
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+    }
+  }
+
+  function drawTarget(t) {
+    const def = TYPES[t.type];
+    const shape = t.shape || 'circle';
+    const age = performance.now() - t.born;
+    const lifeRatio = Math.max(0, 1 - age / t.life);
+    const pop = Math.min(1, age / 140);
+    const scale = t.hit ? 1.3 : pop;
+    const alpha = t.hit ? 0.2 : Math.min(1, lifeRatio + 0.15);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(t.x, t.y);
+    ctx.scale(scale, scale);
+
+    // wood plank base, shaped
+    const woodGrad = ctx.createRadialGradient(-t.r * 0.2, -t.r * 0.25, t.r * 0.1, 0, 0, t.r);
+    woodGrad.addColorStop(0, '#c99a63');
+    woodGrad.addColorStop(0.55, '#a97843');
+    woodGrad.addColorStop(1, '#7a5230');
+    traceShapePath(shape, t.r);
+    ctx.fillStyle = woodGrad;
+    ctx.fill();
+
+    // clip grain/cracks to the shape's silhouette
+    ctx.save();
+    traceShapePath(shape, t.r);
+    ctx.clip();
+
+    ctx.strokeStyle = 'rgba(90, 58, 30, 0.45)';
+    for (let ring = 1; ring <= 3; ring++) {
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, t.r * (ring / 3.6), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(50, 30, 15, 0.6)';
+    ctx.lineWidth = 1.4;
+    for (const c of (t.cracks || [])) {
+      ctx.beginPath();
+      const ex = Math.cos(c.a) * t.r * 0.92;
+      const ey = Math.sin(c.a) * t.r * 0.92;
+      const mx = Math.cos(c.a + c.wig) * t.r * 0.45;
+      const my = Math.sin(c.a + c.wig) * t.r * 0.45;
+      ctx.moveTo(ex, ey);
+      ctx.quadraticCurveTo(mx, my, mx * 0.3, my * 0.3);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // type-colored rim (identifies the target type)
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = def.color;
+    traceShapePath(shape, t.r - 1.5);
+    ctx.stroke();
+
+    // bullseye center (true center for the aim bonus, same for every shape)
+    ctx.beginPath();
+    ctx.arc(0, 0, t.r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = def.color;
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, t.r * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(30, 18, 10, 0.85)';
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+
+    // life countdown arc
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = Math.max(1.5, t.r * lifeRatio * 0.12);
+    ctx.beginPath();
+    ctx.arc(0, 0, t.r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lifeRatio);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function loop(ts) {
+    if (!running) return;
+    if (!lastTs) lastTs = ts;
+    const dt = ts - lastTs;
+    lastTs = ts;
+
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      endGame();
+    }
+    timeVal.textContent = Math.ceil(timeLeft / 1000);
+
+    if (reloading && ts - reloadStart >= RELOAD_MS) {
+      reloading = false;
+      ammo = MAG_SIZE;
+      updateAmmoUI();
+    }
+
+    spawnTimer += dt;
+    const progress = 1 - timeLeft / ROUND_MS;
+    const diff = DIFFICULTIES[currentDifficultyKey];
+    spawnInterval = (900 - progress * 500) * diff.spawnMult;
+    const maxTargets = Math.max(2, 3 + Math.floor(progress * 3) + diff.maxTargetsAdj);
+    if (spawnTimer >= spawnInterval && targets.length < maxTargets) {
+      spawnTimer = 0;
+      spawnTarget();
+    }
+
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const t = targets[i];
+      if (t.hit) continue;
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      if (t.x < t.r || t.x > W - t.r) t.vx *= -1;
+      if (t.y < t.r || t.y > H - t.r) t.vy *= -1;
+      if (performance.now() - t.born > t.life) targets.splice(i, 1);
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    for (const t of targets) drawTarget(t);
+
+    requestAnimationFrame(loop);
+  }
+
+  function updateBest() {
+    if (score > best) {
+      best = score;
+      bestVal.textContent = best;
+      try { localStorage.setItem('shootsim_best', String(best)); } catch (e) { /* ignore */ }
+      return true;
+    }
+    return false;
+  }
+
+  function endGame() {
+    running = false;
+    finalScore.textContent = score;
+    const isRecord = updateBest();
+    endMsg.textContent = isRecord ? 'Новий рекорд! 🏆' : 'Очки за раунд';
+    coinsEarnedMsg.textContent = coinsThisRound > 0 ? `🪙 Зароблено ${coinsThisRound} монет цього раунду` : '';
+    endOverlay.style.display = 'flex';
+  }
+
+  function resetState() {
+    MAG_SIZE = WEAPONS[currentWeaponKey].magSize;
+    RELOAD_MS = WEAPONS[currentWeaponKey].reloadMs;
+    score = 0;
+    ammo = MAG_SIZE;
+    reloading = false;
+    timeLeft = ROUND_MS;
+    lastTs = 0;
+    spawnTimer = 0;
+    spawnInterval = 900;
+    targets = [];
+    coinsThisRound = 0;
+    scoreVal.textContent = '0';
+    timeVal.textContent = '60';
+    updateAmmoUI();
+    ctx.clearRect(0, 0, W, H);
+  }
+
+  function startGame() {
+    ensureAudio();
+    resize();
+    resetState();
+    running = true;
+    startOverlay.style.display = 'none';
+    endOverlay.style.display = 'none';
+    requestAnimationFrame(loop);
+  }
+
+  startBtn.addEventListener('click', startGame);
+  restartBtn.addEventListener('click', () => {
+    renderWeaponPicker();
+    renderItemPicker();
+    renderDifficultyPicker();
+    endOverlay.style.display = 'none';
+    startOverlay.style.display = 'flex';
+  });
+
+  updateAmmoUI();
+})();
+</script>
+</body>
+</html>
